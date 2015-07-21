@@ -10,11 +10,11 @@
 interface modMediaSourceInterface
     /**
      * Initialize the source, preparing it for usage.
-     * 
+     *
      * @return boolean
      */{
     public function initialize();
-    
+
     /**
      * Return an array of containers at this current level in the container structure. Used for the tree
      * navigation on the files tree.
@@ -24,7 +24,7 @@ interface modMediaSourceInterface
      * @return array
      */
     public function getContainerList($path);
-    
+
     /**
      * Return a detailed list of objects in a specific path. Used for thumbnails in the Browser.
      *
@@ -141,7 +141,7 @@ interface modMediaSourceInterface
     /**
      * Get the base URL for this source. Only applicable to sources that are streams; used for determining the base
      * URL with Static objects and downloading objects.
-     * 
+     *
      * @abstract
      * @param string $object
      * @return void
@@ -186,7 +186,7 @@ interface modMediaSourceInterface
      * @return array
      */
     public function getDefaultProperties();
-    
+
 }
 /**
  * An abstract base class used for determining functionality of different media source drivers. Extend this class in
@@ -196,7 +196,7 @@ interface modMediaSourceInterface
  * Of course, in your getContainerList method, you can define the context menu items for the tree, so not all of these
  * methods might need to be implemented, depending on your situation. You can also provide custom actions for your
  * source type, depending on the behavior you might need.
- * 
+ *
  * @package modx
  * @subpackage sources
  */
@@ -310,7 +310,7 @@ class modMediaSource extends modAccessibleSimpleObject implements modMediaSource
 
     /**
      * Add an error for an action occurring in the source
-     * 
+     *
      * @param string $field The field corresponding to the error
      * @param string $message The message to add
      * @return string The added error
@@ -357,7 +357,7 @@ class modMediaSource extends modAccessibleSimpleObject implements modMediaSource
 
     /**
      * Get the openTo directory for this source, used with TV input types
-     * 
+     *
      * @param string $value
      * @param array $parameters
      * @return string
@@ -462,27 +462,49 @@ class modMediaSource extends modAccessibleSimpleObject implements modMediaSource
      * @return array
      */
     public function prepareProperties(array $properties = array()) {
+
+        /*  this function needs careful refactoring. Originally it produced a lot of rubbish
+            in the debug log, because it tries to unneccessary translate property keys ("name")
+            and property values from lists. These lists include for the core media source properties
+            keys like 'PNG' which should not be translated either.
+            This is important because we have two nested foreach loops in here, and nearly every
+            manager click provokes subsequent calls to this function (every place where mediasources
+            are shown: in the resource tree, at resource level (tvs), the mediabrowser, media sources ...
+            It seems an unneccessary performance load to do this.
+            TODO: other solution would be to implent property names and options into lexicon. But why would we want to have entries like "PNG" as an translation option???
+        */
+
         foreach ($properties as &$property) {
+            /* only translate if there is a lexicon entry! */
             if (!empty($property['lexicon'])) {
                 $this->xpdo->lexicon->load($property['lexicon']);
-            }
-            if (!empty($property['name'])) {
-                $property['name_trans'] = $this->xpdo->lexicon($property['name']);
-            }
-            if (!empty($property['desc'])) {
-                $property['desc_trans'] = $this->xpdo->lexicon($property['desc']);
-            }
-            if (!empty($property['options'])) {
-                foreach ($property['options'] as &$option) {
-                    if (empty($option['text']) && !empty($option['name'])) {
-                        $option['text'] = $option['name'];
-                        unset($option['name']);
+
+                /* the following is useless - the property names are _keys_, so any translation here would be bad */
+                /* there is no sense in translating keys! */
+                /* TODO: is there any need for translating a key-like value? */
+                //if (!empty($property['name'])) {
+                //    $property['name_trans'] = $this->xpdo->lexicon($property['name']);
+                //}
+
+                /* the description _has_ to be translated */
+                if (!empty($property['desc'])) {
+                    $property['desc_trans'] = $this->xpdo->lexicon($property['desc']);
+                }
+
+                /* it seems that only combo-boolean needs to be translated here */
+                /* exception: custom lexicon settings (lexicon != core:source ) */
+                if (($property['type']=='combo-boolean' || $property['lexicon']!=='core:source') && !empty($property['options'])) {
+                    foreach ($property['options'] as &$option) {
+                        if (empty($option['text']) && !empty($option['name'])) {
+                            $option['text'] = $option['name'];
+                            unset($option['name']);
+                        }
+                        if (empty($option['value']) && !empty($option[0])) {
+                            $option['value'] = $option[0];
+                            unset($option[0]);
+                        }
+                        $option['name'] = $this->xpdo->lexicon($option['text']);
                     }
-                    if (empty($option['value']) && !empty($option[0])) {
-                        $option['value'] = $option[0];
-                        unset($option[0]);
-                    }
-                    $option['name'] = $this->xpdo->lexicon($option['text']);
                 }
             }
         }
@@ -491,7 +513,7 @@ class modMediaSource extends modAccessibleSimpleObject implements modMediaSource
 
     /**
      * Set the properties for this Source
-     * 
+     *
      * @param array $properties
      * @param boolean $merge
      * @return bool
@@ -510,7 +532,7 @@ class modMediaSource extends modAccessibleSimpleObject implements modMediaSource
                 }
             }
         }
-        
+
         $set = false;
         $propertiesArray = array();
         if (is_string($properties)) {
@@ -577,7 +599,7 @@ class modMediaSource extends modAccessibleSimpleObject implements modMediaSource
 
     /**
      * Prepare the source path for phpThumb
-     * 
+     *
      * @param string $src
      * @return string
      */
@@ -610,7 +632,7 @@ class modMediaSource extends modAccessibleSimpleObject implements modMediaSource
     /**
      * Prepares the output URL when the Source is being used in an Element. Can be overridden to provide prefixing/post-
      * fixing functionality.
-     * 
+     *
      * @param string $value
      * @return string
      */
@@ -620,7 +642,7 @@ class modMediaSource extends modAccessibleSimpleObject implements modMediaSource
 
     /**
      * Find all policies for this object
-     * 
+     *
      * @param string $context
      * @return array
      */
